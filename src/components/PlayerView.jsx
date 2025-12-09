@@ -19,43 +19,34 @@ const PlayerView = ({ db, appId }) => {
       setScreenId(id);
     }
 
-    // Generate a 6-digit code if not paired
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setPairingCode(code);
 
-    // Register screen in DB
-    // FIXED: Removed 'public' to ensure path has 4 segments (Document)
-    // Path: artifacts/{appId}/data/{docId}
     const screenRef = doc(db, 'artifacts', appId, 'data', `screen_${id}`);
     
-    // Initial registration (idempotent)
     setDoc(screenRef, {
       lastSeen: new Date().toISOString(),
       pairingCode: code,
       id: id
     }, { merge: true });
 
-    // Listen for changes (e.g., Admin assigns a store)
     const unsub = onSnapshot(screenRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setScreenData(data);
         
-        // If assigned to a store, fetch that store's playlist
         if (data.storeId) {
-          // FIXED: Removed 'public'
           const storeRef = doc(db, 'artifacts', appId, 'data', `store_${data.storeId}`);
           onSnapshot(storeRef, (storeSnap) => {
             if (storeSnap.exists()) {
               setPlaylist(storeSnap.data().content || []);
-              setCurrentIndex(0); // Reset loop on update
+              setCurrentIndex(0); 
             }
           });
         }
       }
     });
 
-    // Clock ticker for scheduling
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
     return () => {
@@ -64,12 +55,11 @@ const PlayerView = ({ db, appId }) => {
     };
   }, [db, appId, screenId]);
 
-  // 2. Playback Logic (Loop + Schedule Check)
+  // 2. Playback Logic
   useEffect(() => {
     if (!playlist.length) return;
 
     const item = playlist[currentIndex];
-    // Default duration 10s if not set
     const duration = (item.duration || 10) * 1000;
 
     const loopTimer = setTimeout(() => {
@@ -84,7 +74,7 @@ const PlayerView = ({ db, appId }) => {
   // A. Pairing Screen
   if (!screenData?.storeId) {
     return (
-      <div className="h-screen w-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+      <div className="h-screen w-screen bg-slate-900 flex flex-col items-center justify-center text-white font-sans">
         <div className="animate-pulse mb-8">
           <Monitor className="w-32 h-32 text-indigo-500" />
         </div>
@@ -101,9 +91,8 @@ const PlayerView = ({ db, appId }) => {
   // B. Content Player
   const currentItem = playlist[currentIndex];
   
-  // Check Schedule (Day Parting)
   const isScheduledNow = (item) => {
-    if (!item.scheduleStart && !item.scheduleEnd) return true; // Always show if no schedule
+    if (!item.scheduleStart && !item.scheduleEnd) return true;
     
     const now = new Date();
     const currentHour = now.getHours();
@@ -115,28 +104,42 @@ const PlayerView = ({ db, appId }) => {
   };
 
   if (currentItem && !isScheduledNow(currentItem)) {
-    // Return empty black screen if scheduled item shouldn't play now
     return <div className="bg-black h-screen w-screen" />; 
   }
 
   if (!currentItem) return <div className="bg-black h-screen flex items-center justify-center text-white">No Content Loaded</div>;
 
+  // Render Styles based on Item Configuration
+  const containerStyles = {
+    backgroundColor: currentItem.styles?.backgroundColor || '#000000',
+    color: currentItem.styles?.color || '#ffffff',
+    justifyContent: currentItem.styles?.justifyContent || 'center',
+    alignItems: currentItem.styles?.alignItems || 'center',
+    fontFamily: currentItem.styles?.fontFamily || 'ui-sans-serif',
+  };
+
+  const textStyle = {
+    fontSize: currentItem.styles?.fontSize || '4rem',
+  };
+
   return (
-    <div className="h-screen w-screen bg-black overflow-hidden relative font-sans">
-      {/* Dynamic Widgets Layer */}
-      <div className="absolute top-4 right-4 flex gap-4 z-20">
-        <div className="bg-black/50 backdrop-blur px-4 py-2 rounded-lg text-white font-bold text-2xl flex items-center gap-2">
+    <div className="h-screen w-screen overflow-hidden relative font-sans flex flex-col" style={containerStyles}>
+      
+      {/* Clock Overlay (optional, usually sits on top) */}
+      <div className="absolute top-6 right-6 z-50">
+        <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-white font-bold text-2xl flex items-center gap-2 border border-white/10 shadow-lg">
            <Clock className="w-5 h-5 text-emerald-400" />
            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}
         </div>
       </div>
 
-      {/* Content Layer */}
+      {/* Media Type Rendering */}
+      
       {currentItem.type === 'image' && (
         <img 
           src={currentItem.url} 
           alt="Signage" 
-          className="w-full h-full object-cover animate-fade-in"
+          className="max-w-full max-h-full object-contain animate-fade-in"
         />
       )}
       
@@ -146,22 +149,30 @@ const PlayerView = ({ db, appId }) => {
           autoPlay 
           muted 
           loop={false} 
-          className="w-full h-full object-cover"
+          className="max-w-full max-h-full object-contain"
+        />
+      )}
+
+      {currentItem.type === 'pdf' && (
+        <iframe 
+            src={currentItem.url} 
+            className="w-full h-full border-0" 
+            title="PDF Viewer"
         />
       )}
 
       {currentItem.type === 'widget_weather' && (
-        <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex flex-col items-center justify-center text-white">
-          <CloudSun className="w-48 h-48 mb-4 animate-bounce" />
-          <h1 className="text-8xl font-bold">72°F</h1>
-          <h2 className="text-4xl mt-2">Sunny in Downtown</h2>
+        <div className="flex flex-col items-center animate-fade-in">
+          <CloudSun className="w-64 h-64 mb-8 animate-bounce" />
+          <h1 className="text-9xl font-bold">72°F</h1>
+          <h2 className="text-5xl mt-4 opacity-90">Sunny in Downtown</h2>
         </div>
       )}
 
       {currentItem.type === 'widget_ticker' && (
-        <div className="w-full h-full bg-emerald-600 flex flex-col items-center justify-center p-20 text-center">
-           <h1 className="text-6xl md:text-8xl font-black text-white leading-tight drop-shadow-lg animate-pulse">
-             {currentItem.text || "Welcome to our store! Ask about our specials."}
+        <div className="p-20 text-center animate-fade-in w-full">
+           <h1 className="font-black leading-tight drop-shadow-lg" style={textStyle}>
+             {currentItem.text || "Welcome!"}
            </h1>
         </div>
       )}
