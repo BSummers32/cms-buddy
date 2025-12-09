@@ -31,8 +31,10 @@ const AdminDashboard = ({ db, user, appId, setMode }) => {
 
   // Fetch Stores
   useEffect(() => {
-    // Real-time listener for stores
-    const q = collection(db, 'artifacts', appId, 'public', 'data');
+    // FIXED: Removed 'public' to ensure path has 3 segments (Collection)
+    // Path: artifacts/{appId}/data
+    const q = collection(db, 'artifacts', appId, 'data');
+    
     const unsub = onSnapshot(q, (snapshot) => {
       const s = [];
       const scr = [];
@@ -53,7 +55,8 @@ const AdminDashboard = ({ db, user, appId, setMode }) => {
     const name = prompt("Enter new Store Name:");
     if (!name) return;
     const newId = name.toLowerCase().replace(/\s/g, '_');
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `store_${newId}`), {
+    // FIXED: Removed 'public'
+    await setDoc(doc(db, 'artifacts', appId, 'data', `store_${newId}`), {
       name,
       content: []
     });
@@ -64,7 +67,8 @@ const AdminDashboard = ({ db, user, appId, setMode }) => {
     // Find screen with this code
     const targetScreen = screens.find(s => s.pairingCode === pairCodeInput);
     if (targetScreen) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', `screen_${targetScreen.id}`), {
+      // FIXED: Removed 'public'
+      await updateDoc(doc(db, 'artifacts', appId, 'data', `screen_${targetScreen.id}`), {
         storeId: activeStoreId
       });
       setPairCodeInput('');
@@ -76,7 +80,8 @@ const AdminDashboard = ({ db, user, appId, setMode }) => {
 
   const handleAddItem = async () => {
     if (!activeStoreId) return;
-    const storeRef = doc(db, 'artifacts', appId, 'public', 'data', `store_${activeStoreId}`);
+    // FIXED: Removed 'public'
+    const storeRef = doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`);
     
     const itemToAdd = {
       ...newItem,
@@ -94,7 +99,8 @@ const AdminDashboard = ({ db, user, appId, setMode }) => {
   const handleDeleteItem = async (itemId) => {
     const currentStore = stores.find(s => s.id === activeStoreId);
     const newContent = currentStore.content.filter(i => i.id !== itemId);
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', `store_${activeStoreId}`), { content: newContent });
+    // FIXED: Removed 'public'
+    await updateDoc(doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`), { content: newContent });
   };
 
   const handleMoveItem = async (index, direction) => {
@@ -105,7 +111,8 @@ const AdminDashboard = ({ db, user, appId, setMode }) => {
     } else if (direction === 'down' && index < newContent.length - 1) {
       [newContent[index], newContent[index + 1]] = [newContent[index + 1], newContent[index]];
     }
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', `store_${activeStoreId}`), { content: newContent });
+    // FIXED: Removed 'public'
+    await updateDoc(doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`), { content: newContent });
   };
 
   // Get screens for current store

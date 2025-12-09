@@ -24,7 +24,9 @@ const PlayerView = ({ db, appId }) => {
     setPairingCode(code);
 
     // Register screen in DB
-    const screenRef = doc(db, 'artifacts', appId, 'public', 'data', `screen_${id}`);
+    // FIXED: Removed 'public' to ensure path has 4 segments (Document)
+    // Path: artifacts/{appId}/data/{docId}
+    const screenRef = doc(db, 'artifacts', appId, 'data', `screen_${id}`);
     
     // Initial registration (idempotent)
     setDoc(screenRef, {
@@ -41,7 +43,8 @@ const PlayerView = ({ db, appId }) => {
         
         // If assigned to a store, fetch that store's playlist
         if (data.storeId) {
-          const storeRef = doc(db, 'artifacts', appId, 'public', 'data', `store_${data.storeId}`);
+          // FIXED: Removed 'public'
+          const storeRef = doc(db, 'artifacts', appId, 'data', `store_${data.storeId}`);
           onSnapshot(storeRef, (storeSnap) => {
             if (storeSnap.exists()) {
               setPlaylist(storeSnap.data().content || []);
