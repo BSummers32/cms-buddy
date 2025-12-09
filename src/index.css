@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* THEME VARIABLES
+  Change these values to update your branding globally.
+*/
+:root {
+  /* Main Brand Color (Currently Emerald) */
+  --color-primary: 16 185 129; 
+  --color-primary-dark: 4 120 87;
+
+  /* Secondary/Accent Color (Currently Indigo) */
+  --color-accent: 79 70 229;
+  
+  /* Background Colors (Currently Slate 900) */
+  --bg-dark: 15 23 42;
+  --bg-card: 30 41 59;
+  
+  /* Text Colors */
+  --text-main: 255 255 255;
+  --text-muted: 148 163 184;
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
