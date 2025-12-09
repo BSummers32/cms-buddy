@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { 
   Settings, Smartphone, Plus, LogOut, ArrowUp, ArrowDown, 
-  Trash2, Image as ImageIcon, Play, CloudSun, Type, Calendar, Layout 
+  Trash2, Image as ImageIcon, Play, CloudSun, Type, Calendar, Layout,
+  Clock 
 } from 'lucide-react';
 
 const Modal = ({ isOpen, onClose, title, children }) => {
