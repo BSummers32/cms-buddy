@@ -1,83 +1,109 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { 
-  Settings, Smartphone, Plus, LogOut, ArrowUp, ArrowDown, 
-  Trash2, Image as ImageIcon, Play, CloudSun, Type, Calendar, Layout,
-  Clock, Upload, Palette, FileText, MonitorPlay, Loader2
+  Upload, Palette, MonitorPlay, CloudSun, Loader2, Image as ImageIcon, 
+  Play, FileText, Layout, Wind, Droplets, Sun, CloudRain, CloudSnow, Cloud, MapPin,
+  QrCode, Timer, Link, Clock, Eye, EyeOff, Plus, Trash2, Smartphone, Settings, LogOut, ArrowLeft,
+  Wifi, CalendarDays, Server, Activity
 } from 'lucide-react';
 
-const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 rounded-2xl w-full max-w-6xl h-[90vh] border border-slate-700 shadow-2xl animate-fade-in flex flex-col overflow-hidden">
-        <div className="flex justify-between items-center p-6 border-b border-slate-700 bg-slate-900/50">
-          <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-            {title}
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-full">✕</button>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
+const WeatherBackground = ({ condition }) => {
+  if (condition === 'sunny') return <div className="absolute inset-0 bg-gradient-to-tr from-orange-400 via-amber-200 to-sky-300 overflow-hidden"><div className="absolute top-[-20%] right-[-20%] opacity-40 text-yellow-100 mix-blend-screen"><Sun size={800} className="animate-spin-slow" /></div><div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div></div>;
+  if (condition === 'rainy') return <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-800 to-indigo-900 overflow-hidden">{Array.from({ length: 60 }).map((_, i) => (<div key={i} className="absolute bg-blue-400/30 w-0.5 rounded-full animate-fall" style={{ height: `${Math.random() * 30 + 10}px`, left: `${Math.random() * 100}%`, animationDuration: `${Math.random() * 0.4 + 0.3}s`, animationDelay: `${Math.random() * 2}s` }} />))}<div className="absolute top-0 w-full h-full bg-black/10" /></div>;
+  if (condition === 'snowy') return <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 overflow-hidden">{Array.from({ length: 80 }).map((_, i) => (<div key={i} className="absolute bg-white/80 rounded-full animate-fall blur-[1px]" style={{ width: `${Math.random() * 5 + 2}px`, height: `${Math.random() * 5 + 2}px`, left: `${Math.random() * 100}%`, animationDuration: `${Math.random() * 8 + 4}s`, animationDelay: `${Math.random() * 5}s` }} />))}</div>;
+  if (condition === 'cloudy') return <div className="absolute inset-0 bg-gradient-to-br from-gray-500 via-slate-400 to-gray-300 overflow-hidden"><Cloud size={500} className="absolute top-[-100px] left-[-150px] text-white/30 animate-drift blur-2xl" style={{ animationDuration: '60s' }} /><Cloud size={400} className="absolute bottom-[20%] right-[-100px] text-white/20 animate-drift blur-xl" style={{ animationDuration: '45s', animationDelay: '5s' }} /><div className="absolute inset-0 bg-black/5" /></div>;
+  return <div className="absolute inset-0 bg-slate-900" />;
 };
 
 const ContentPreview = ({ item }) => {
+  const hexToRgba = (hex, alpha) => {
+    if (!hex) return 'rgba(0,0,0,1)';
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   const containerStyle = {
-    backgroundColor: item.styles?.backgroundColor || '#000000',
-    color: item.styles?.color || '#ffffff',
-    justifyContent: item.styles?.justifyContent || 'center',
-    alignItems: item.styles?.alignItems || 'center',
-    fontFamily: item.styles?.fontFamily || 'sans-serif',
+    display: 'flex', flexDirection: 'column', justifyContent: item.styles?.justifyContent || 'center', alignItems: item.styles?.alignItems || 'center',
+    padding: `${item.styles?.padding || 0}px`, color: item.styles?.color || '#ffffff', fontFamily: item.styles?.fontFamily || 'sans-serif',
+    fontWeight: item.styles?.fontWeight || '400', letterSpacing: `${item.styles?.letterSpacing || 0}px`,
+    backgroundColor: item.type === 'widget_weather' ? 'transparent' : hexToRgba(item.styles?.backgroundColor || '#000000', item.styles?.opacity || 1),
+  };
+  
+  const mediaStyle = {
+    borderRadius: `${item.styles?.borderRadius || 0}px`,
+    boxShadow: item.styles?.boxShadow ? '0 20px 25px -5px rgba(0, 0, 0, 0.5)' : 'none',
   };
 
-  const textStyle = {
-    fontSize: item.styles?.fontSize || '2rem',
+  const weatherBarStyle = {
+    backgroundColor: hexToRgba(item.styles?.backgroundColor || '#000000', item.styles?.opacity || 0.4),
+    backdropFilter: 'blur(16px)', borderRadius: `${item.styles?.borderRadius || 24}px`,
+    color: item.styles?.color || '#ffffff', boxShadow: item.styles?.boxShadow ? '0 25px 50px -12px rgba(0, 0, 0, 0.25)' : 'none',
   };
 
-  if (!item.url && !item.text && item.type !== 'widget_weather') {
-    return (
-      <div className="h-full w-full flex flex-col items-center justify-center text-slate-500 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl">
-        <MonitorPlay className="w-16 h-16 mb-4 opacity-20" />
-        <p>Preview Area</p>
-      </div>
-    );
-  }
+  const isInactive = item.active === false;
 
   return (
-    <div 
-      className="h-full w-full overflow-hidden flex relative shadow-2xl" 
-      style={containerStyle}
-    >
-      {item.type === 'image' && item.url && (
-        <img src={item.url} alt="Preview" className="max-w-full max-h-full object-contain" />
-      )}
-
-      {item.type === 'video' && item.url && (
-        <video src={item.url} controls className="max-w-full max-h-full" />
-      )}
+    <div className="h-full w-full overflow-hidden relative shadow-2xl transition-all duration-300" style={{ ...containerStyle, filter: isInactive ? 'grayscale(100%) opacity(0.5)' : 'none' }}>
       
-      {item.type === 'pdf' && item.url && (
-        <iframe src={item.url} className="w-full h-full" title="PDF Preview" />
-      )}
+      {item.type === 'widget_weather' && <WeatherBackground condition={item.weatherCondition || 'sunny'} />}
+      
+      <div className="relative z-10 w-full h-full flex flex-col" style={{ justifyContent: containerStyle.justifyContent, alignItems: containerStyle.alignItems }}>
+        {isInactive && <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none"><div className="bg-black/80 text-white px-6 py-3 rounded-full font-bold border border-white/20 uppercase tracking-widest">Disabled</div></div>}
+        
+        {item.type === 'image' && item.url && <img src={item.url} alt="Preview" className="max-w-full max-h-full object-contain transition-all duration-300" style={mediaStyle} />}
+        {item.type === 'video' && item.url && <video src={item.url} controls className="max-w-full max-h-full transition-all duration-300" style={mediaStyle} />}
+        {item.type === 'pdf' && item.url && <iframe src={item.url} className="w-full h-full border-0" title="PDF Preview" />}
+        
+        {item.type === 'widget_qr' && (
+          <div className="flex flex-col md:flex-row items-center gap-12 max-w-5xl p-8">
+            <div className="bg-white p-4" style={{ borderRadius: `${item.styles?.borderRadius || 20}px`, boxShadow: item.styles?.boxShadow ? '0 20px 50px rgba(0,0,0,0.5)' : 'none' }}>
+               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(item.qrLink || 'https://example.com')}`} alt="QR Code" className="w-48 h-48 md:w-64 md:h-64 object-contain mix-blend-multiply" />
+            </div>
+            <div className="text-center md:text-left space-y-4 max-w-2xl">
+               <h2 className="text-5xl md:text-7xl font-bold leading-tight" style={{ textShadow: item.styles?.textShadow ? '0 4px 20px rgba(0,0,0,0.5)' : 'none' }}>{item.text || "Scan Me"}</h2>
+               <p className="text-2xl md:text-3xl opacity-80" style={{ fontWeight: 300 }}>{item.subText || "Use your phone camera to scan the code."}</p>
+            </div>
+          </div>
+        )}
 
-      {item.type === 'widget_ticker' && (
-        <div className="p-8 text-center" style={textStyle}>
-          {item.text || "Ticker Text Preview"}
-        </div>
-      )}
+        {item.type === 'widget_countdown' && (
+          <div className="flex flex-col items-center justify-center p-8 w-full">
+             <div className="text-center space-y-4 mb-8">
+               <h2 className="text-4xl md:text-6xl font-bold uppercase tracking-tight" style={{ textShadow: item.styles?.textShadow ? '0 4px 20px rgba(0,0,0,0.5)' : 'none' }}>{item.text || "Event Starts In"}</h2>
+               <p className="text-xl md:text-2xl opacity-80 max-w-3xl mx-auto">{item.subText || "Don't miss the big moment."}</p>
+             </div>
+             <div className="text-6xl font-mono font-bold bg-white/10 p-4 rounded backdrop-blur border border-white/20">00:00:00:00</div>
+          </div>
+        )}
 
-      {item.type === 'widget_weather' && (
-        <div className="flex flex-col items-center">
-          <CloudSun size={64} className="mb-4" />
-          <h2 className="text-4xl font-bold">72°F</h2>
-          <p className="text-xl opacity-75">Sunny</p>
-        </div>
-      )}
+        {item.type === 'widget_weather' && (
+          <div className="w-full h-full flex flex-col justify-end p-6 md:p-10 font-sans">
+             <div className="flex-1 p-4">
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-white/80 border border-white/10" style={{ backgroundColor: weatherBarStyle.backgroundColor, borderRadius: '99px', backdropFilter: 'blur(8px)' }}>
+                   <MapPin size={16} />
+                   <span className="text-sm font-medium uppercase tracking-wider">Downtown District</span>
+                </div>
+             </div>
+             <div className="w-full p-6 flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300" style={weatherBarStyle}>
+                <div className="flex items-center gap-6 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-8 w-full md:w-auto justify-center md:justify-start">
+                   <div className="animate-float">
+                      {(!item.weatherCondition || item.weatherCondition === 'sunny') && <Sun size={64} className="text-yellow-400 drop-shadow-lg" />}
+                      {item.weatherCondition === 'rainy' && <CloudRain size={64} className="text-blue-300 drop-shadow-lg" />}
+                      {item.weatherCondition === 'snowy' && <CloudSnow size={64} className="text-white drop-shadow-lg" />}
+                      {item.weatherCondition === 'cloudy' && <Cloud size={64} className="text-slate-300 drop-shadow-lg" />}
+                   </div>
+                   <div style={{ textShadow: item.styles?.textShadow ? '2px 2px 4px rgba(0,0,0,0.5)' : 'none' }}>
+                      <h2 className="text-6xl font-bold leading-none tracking-tighter">{item.weatherCondition === 'snowy' ? '28' : item.weatherCondition === 'rainy' ? '65' : '72'}°</h2>
+                      <p className="text-lg opacity-80 font-medium capitalize mt-1">{item.weatherCondition || 'Sunny'}</p>
+                   </div>
+                </div>
+             </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -86,30 +112,23 @@ const AdminDashboard = ({ db, storage, user, appId, setMode }) => {
   const [stores, setStores] = useState([]);
   const [screens, setScreens] = useState([]);
   const [activeStoreId, setActiveStoreId] = useState(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' | 'editor'
   const [isUploading, setIsUploading] = useState(false);
   
-  const [newItem, setNewItem] = useState({ 
-    type: 'image', 
-    url: '', 
-    file: null, // Hold raw file here
-    text: '',
-    duration: 10, 
-    scheduleStart: '', 
-    scheduleEnd: '',
-    styles: {
-      backgroundColor: '#000000',
-      color: '#ffffff',
-      fontSize: '3rem',
-      fontFamily: 'ui-sans-serif',
-      justifyContent: 'center',
-      alignItems: 'center'
-    }
-  });
+  // Default new item state
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const defaultItem = { 
+    id: 'draft', active: true, type: 'widget_qr', url: '', file: null, text: '', subText: '', 
+    qrLink: 'https://www.google.com', targetDate: tomorrow.toISOString().slice(0, 16), duration: 10, 
+    scheduleDays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true },
+    scheduleStart: '', scheduleEnd: '', weatherCondition: 'sunny', 
+    styles: { backgroundColor: '#4f46e5', opacity: 1, color: '#ffffff', fontSize: '3rem', fontWeight: '700', letterSpacing: 0, fontFamily: 'ui-sans-serif', justifyContent: 'center', alignItems: 'center', borderRadius: 20, padding: 0, boxShadow: true, textShadow: true }
+  };
 
-  const [pairCodeInput, setPairCodeInput] = useState('');
+  const [newItem, setNewItem] = useState(defaultItem);
 
-  // Fetch Data
+  // Fetch Data (Stores/Screens)
   useEffect(() => {
     const q = collection(db, 'artifacts', appId, 'data');
     const unsub = onSnapshot(q, (snapshot) => {
@@ -126,42 +145,19 @@ const AdminDashboard = ({ db, storage, user, appId, setMode }) => {
     return () => unsub();
   }, [db, appId]);
 
-  const handleAddStore = async () => {
-    const name = prompt("Enter new Location Name:");
-    if (!name) return;
-    const newId = name.toLowerCase().replace(/\s/g, '_');
-    await setDoc(doc(db, 'artifacts', appId, 'data', `store_${newId}`), {
-      name,
-      content: []
-    });
-  };
-
-  const handlePairScreen = async () => {
-    if (!activeStoreId) return alert("Select a location first");
-    const targetScreen = screens.find(s => s.pairingCode === pairCodeInput);
-    if (targetScreen) {
-      await updateDoc(doc(db, 'artifacts', appId, 'data', `screen_${targetScreen.id}`), {
-        storeId: activeStoreId
-      });
-      setPairCodeInput('');
-      alert("Screen Paired Successfully!");
-    } else {
-      alert("Invalid Code or Screen Offline");
-    }
-  };
+  const currentStoreData = stores.find(s => s.id === activeStoreId);
+  const activeScreens = screens.filter(s => s.storeId === activeStoreId);
+  const onlineCount = activeScreens.filter(s => {
+    if (!s.lastSeen) return false;
+    const lastSeen = new Date(s.lastSeen).getTime();
+    return (Date.now() - lastSeen) < 60000; // Online if seen in last 60s
+  }).length;
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Create a local preview URL so we don't have to upload just to see it
     const objectUrl = URL.createObjectURL(file);
-    
-    setNewItem({ 
-      ...newItem, 
-      url: objectUrl, // For previewing now
-      file: file      // For uploading later
-    });
+    setNewItem({ ...newItem, url: objectUrl, file: file });
   };
 
   const handleAddItem = async () => {
@@ -174,33 +170,28 @@ const AdminDashboard = ({ db, storage, user, appId, setMode }) => {
 
       // 1. Upload File if exists
       if (newItem.file) {
-        // Create unique path: artifacts/{appId}/media/{timestamp}_{filename}
         const filename = `${Date.now()}_${newItem.file.name}`;
         storagePath = `artifacts/${appId}/media/${filename}`;
         const storageRef = ref(storage, storagePath);
-        
         await uploadBytes(storageRef, newItem.file);
         finalUrl = await getDownloadURL(storageRef);
       }
 
       // 2. Add to Firestore
       const storeRef = doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`);
-      
       const itemToAdd = {
         ...newItem,
         id: Date.now().toString(),
         url: finalUrl,
-        storagePath: storagePath, // Save this so we can delete it later!
-        file: null // Don't save the file object to DB
+        storagePath: storagePath,
+        file: null // Don't save file object
       };
 
-      const currentStore = stores.find(s => s.id === activeStoreId);
-      const newContent = [...(currentStore?.content || []), itemToAdd];
-
+      const newContent = [...(currentStoreData?.content || []), itemToAdd];
       await updateDoc(storeRef, { content: newContent });
       
-      setIsAddModalOpen(false);
-      resetNewItem();
+      setViewMode('dashboard');
+      setNewItem(defaultItem);
     } catch (error) {
       console.error("Error adding item:", error);
       alert("Failed to upload content.");
@@ -209,431 +200,322 @@ const AdminDashboard = ({ db, storage, user, appId, setMode }) => {
     }
   };
 
-  const resetNewItem = () => {
-    setNewItem({ 
-      type: 'image', 
-      url: '', 
-      file: null,
-      text: '', 
-      duration: 10, 
-      scheduleStart: '', 
-      scheduleEnd: '',
-      styles: {
-        backgroundColor: '#000000',
-        color: '#ffffff',
-        fontSize: '3rem',
-        fontFamily: 'ui-sans-serif',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }
-    });
+  const toggleItemActive = async (itemId) => {
+    const storeRef = doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`);
+    const newContent = currentStoreData.content.map(item => 
+      item.id === itemId ? { ...item, active: !item.active } : item
+    );
+    await updateDoc(storeRef, { content: newContent });
   };
 
-  const handleDeleteItem = async (item) => {
-    if(!confirm("Are you sure you want to delete this item?")) return;
-
+  const deleteItem = async (item) => {
+    if(!confirm("Delete this item?")) return;
     try {
-      // 1. Delete from Storage if it's a file
       if (item.storagePath) {
         const fileRef = ref(storage, item.storagePath);
-        await deleteObject(fileRef).catch(err => {
-          console.warn("Could not delete file from storage (might already be gone):", err);
-        });
+        await deleteObject(fileRef).catch(console.warn);
       }
-
-      // 2. Delete from Firestore
-      const currentStore = stores.find(s => s.id === activeStoreId);
-      const newContent = currentStore.content.filter(i => i.id !== item.id);
-      await updateDoc(doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`), { content: newContent });
-
+      const storeRef = doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`);
+      const newContent = currentStoreData.content.filter(i => i.id !== item.id);
+      await updateDoc(storeRef, { content: newContent });
     } catch (error) {
       console.error("Error deleting item:", error);
-      alert("Error deleting item.");
     }
   };
 
-  const handleMoveItem = async (index, direction) => {
-    const currentStore = stores.find(s => s.id === activeStoreId);
-    const newContent = [...currentStore.content];
-    if (direction === 'up' && index > 0) {
-      [newContent[index], newContent[index - 1]] = [newContent[index - 1], newContent[index]];
-    } else if (direction === 'down' && index < newContent.length - 1) {
-      [newContent[index], newContent[index + 1]] = [newContent[index + 1], newContent[index]];
-    }
-    await updateDoc(doc(db, 'artifacts', appId, 'data', `store_${activeStoreId}`), { content: newContent });
+  const toggleDay = (day) => {
+    setNewItem(prev => ({ 
+      ...prev, 
+      scheduleDays: { ...prev.scheduleDays, [day]: !prev.scheduleDays[day] } 
+    }));
   };
 
-  const activeScreens = screens.filter(s => s.storeId === activeStoreId);
-  const currentStoreData = stores.find(s => s.id === activeStoreId);
+  const updateStyle = (key, value) => {
+    setNewItem(prev => ({ ...prev, styles: { ...prev.styles, [key]: value } }));
+  };
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
-      {/* Sidebar */}
-      <div className="w-full md:w-64 bg-slate-900 text-white flex flex-col h-auto md:h-screen sticky top-0 border-r border-slate-700">
-        <div className="p-6 border-b border-slate-700">
-          <h2 className="text-xl font-bold flex items-center gap-2 tracking-tight">
-            <Settings className="text-emerald-400" /> CMS Admin
-          </h2>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <div>
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Locations</label>
-            <div className="space-y-2">
-              {stores.map(store => (
-                <button
-                  key={store.id}
-                  onClick={() => setActiveStoreId(store.id)}
-                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-2 transition-all ${activeStoreId === store.id ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                >
-                  <Smartphone size={18} />
-                  {store.name}
-                </button>
-              ))}
-              <button onClick={handleAddStore} className="w-full text-left px-4 py-3 rounded-lg flex items-center gap-2 bg-slate-800/50 text-slate-400 hover:bg-slate-800 border border-dashed border-slate-700 transition-colors">
-                <Plus size={18} /> Add Location
+  const getDayString = (days) => {
+    if (!days) return 'Everyday';
+    const allDays = ['mon','tue','wed','thu','fri','sat','sun'];
+    const active = allDays.filter(d => days[d]);
+    if (active.length === 7) return 'Everyday';
+    if (active.length === 0) return 'Never';
+    return active.map(d => d.charAt(0).toUpperCase() + d.slice(1,3)).join(', ');
+  };
+
+  // --- EDITOR VIEW ---
+  if (viewMode === 'editor') {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 md:p-8 font-sans">
+        <div className="w-full max-w-7xl bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700 flex flex-col md:flex-row h-[90vh]">
+          
+          {/* Controls */}
+          <div className="w-full md:w-1/3 bg-slate-800 border-r border-slate-700 flex flex-col h-full overflow-hidden">
+            <div className="p-4 border-b border-slate-700 bg-slate-800/50 backdrop-blur-sm z-10 shrink-0 flex items-center gap-2">
+               <button onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors">
+                 <ArrowLeft size={20} />
+               </button>
+               <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                 <Layout className="text-emerald-400" size={24} /> Content Editor
+               </h2>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
+               {/* 1. Type */}
+               <section>
+                <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3 block">1. Select Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[{ id: 'image', icon: ImageIcon, label: 'Image' }, { id: 'video', icon: Play, label: 'Video' }, { id: 'pdf', icon: FileText, label: 'PDF' }, { id: 'widget_qr', icon: QrCode, label: 'QR Code' }, { id: 'widget_countdown', icon: Timer, label: 'Timer' }, { id: 'widget_weather', icon: CloudSun, label: 'Weather' }].map((type) => (
+                    <button key={type.id} onClick={() => setNewItem({ ...newItem, type: type.id })} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${newItem.type === type.id ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-slate-700/30 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
+                      <type.icon size={20} className="mb-2" />
+                      <span className="text-[10px] font-bold uppercase">{type.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* 2. Inputs */}
+              <section className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                 <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3 block">2. Content Source</label>
+                 
+                 {['image', 'video', 'pdf'].includes(newItem.type) && (
+                  <div className="group relative border-2 border-dashed border-slate-600 rounded-lg p-6 hover:border-emerald-500 hover:bg-slate-800/50 transition-all text-center">
+                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept={newItem.type === 'video' ? "video/*" : newItem.type === 'pdf' ? ".pdf" : "image/*"} onChange={handleFileUpload} />
+                    <div className="flex flex-col items-center pointer-events-none">
+                      <div className="p-3 bg-slate-700 rounded-full mb-3"><Upload className="text-emerald-400" size={24} /></div>
+                      <p className="text-sm text-slate-300 font-medium">Click to upload {newItem.type}</p>
+                    </div>
+                  </div>
+                )}
+
+                {newItem.type === 'widget_qr' && (
+                  <div className="space-y-4">
+                    <div><label className="block text-xs text-slate-400 mb-2">Headline</label><input type="text" value={newItem.text || ''} onChange={(e) => setNewItem({ ...newItem, text: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white text-sm focus:border-emerald-500 outline-none font-bold" placeholder="e.g. SCAN ME" /></div>
+                    <div><label className="block text-xs text-slate-400 mb-2">Body Text</label><textarea rows="2" value={newItem.subText || ''} onChange={(e) => setNewItem({ ...newItem, subText: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white text-sm focus:border-emerald-500 outline-none" placeholder="e.g. Scan to visit our website" /></div>
+                    <div><label className="block text-xs text-emerald-400 font-bold mb-2 flex items-center gap-2"><Link size={12}/> Target URL</label><input type="text" value={newItem.qrLink} onChange={(e) => setNewItem({ ...newItem, qrLink: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-emerald-400 text-sm focus:border-emerald-500 outline-none font-mono" placeholder="https://..." /></div>
+                  </div>
+                )}
+
+                 {newItem.type === 'widget_countdown' && (
+                  <div className="space-y-4">
+                    <div><label className="block text-xs text-slate-400 mb-2">Event Title</label><input type="text" value={newItem.text || ''} onChange={(e) => setNewItem({ ...newItem, text: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white text-sm focus:border-emerald-500 outline-none font-bold" placeholder="e.g. GRAND OPENING" /></div>
+                    <div><label className="block text-xs text-slate-400 mb-2">Description</label><textarea rows="2" value={newItem.subText || ''} onChange={(e) => setNewItem({ ...newItem, subText: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white text-sm focus:border-emerald-500 outline-none" placeholder="e.g. Doors open in..." /></div>
+                    <div><label className="block text-xs text-emerald-400 font-bold mb-2 flex items-center gap-2"><Clock size={12}/> Target Date & Time</label><input type="datetime-local" value={newItem.targetDate} onChange={(e) => setNewItem({ ...newItem, targetDate: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white text-sm focus:border-emerald-500 outline-none" /></div>
+                  </div>
+                )}
+
+                {newItem.type === 'widget_weather' && (
+                  <div>
+                     <label className="block text-xs text-slate-400 mb-2">Mock Condition</label>
+                     <div className="grid grid-cols-4 gap-1">
+                        {['sunny', 'rainy', 'cloudy', 'snowy'].map(cond => (
+                          <button key={cond} onClick={() => setNewItem({ ...newItem, weatherCondition: cond })} className={`p-1.5 rounded text-[10px] capitalize border ${newItem.weatherCondition === cond ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>{cond}</button>
+                        ))}
+                     </div>
+                  </div>
+                )}
+              </section>
+
+               {/* 3. Scheduling */}
+               <section className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                 <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-4 flex items-center gap-2"><CalendarDays size={14} /> 3. Advanced Scheduling</label>
+                 <div className="space-y-4">
+                   <div>
+                      <label className="text-xs text-slate-400 mb-2 block">Active Days</label>
+                      <div className="flex justify-between gap-1">
+                         {['sun','mon','tue','wed','thu','fri','sat'].map(day => (
+                            <button key={day} onClick={() => toggleDay(day)} className={`w-8 h-8 rounded text-[10px] font-bold uppercase transition-all ${newItem.scheduleDays?.[day] ? 'bg-emerald-600 text-white shadow-lg scale-105' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{day.charAt(0)}</button>
+                         ))}
+                      </div>
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div><label className="text-xs text-slate-400 mb-1 block">Start Time</label><input type="time" value={newItem.scheduleStart} onChange={(e) => setNewItem({...newItem, scheduleStart: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs" /></div>
+                      <div><label className="text-xs text-slate-400 mb-1 block">End Time</label><input type="time" value={newItem.scheduleEnd} onChange={(e) => setNewItem({...newItem, scheduleEnd: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs" /></div>
+                   </div>
+                 </div>
+               </section>
+
+               {/* 4. Styles */}
+               <section className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                 <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Palette size={14} /> 4. Styles</label>
+                 <div className="space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div><label className="text-xs text-slate-400 mb-1 block">Background</label><input type="color" value={newItem.styles.backgroundColor} onChange={(e) => updateStyle('backgroundColor', e.target.value)} className="w-full h-8 rounded bg-transparent border border-slate-600" /></div>
+                      <div><label className="text-xs text-slate-400 mb-1 block">Text Color</label><input type="color" value={newItem.styles.color} onChange={(e) => updateStyle('color', e.target.value)} className="w-full h-8 rounded bg-transparent border border-slate-600" /></div>
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div><label className="text-xs text-slate-400 mb-1 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value={newItem.styles.opacity} onChange={(e) => updateStyle('opacity', parseFloat(e.target.value))} className="w-full accent-emerald-500" /></div>
+                      <div><label className="text-xs text-slate-400 mb-1 block">Duration (s)</label><input type="number" value={newItem.duration} onChange={(e) => setNewItem({...newItem, duration: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs" /></div>
+                   </div>
+                 </div>
+               </section>
+            </div>
+            
+            <div className="p-6 border-t border-slate-700 bg-slate-800 shrink-0">
+              <button onClick={handleAddItem} disabled={isUploading} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-600 text-white font-bold py-3 rounded-lg shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                {isUploading ? <Loader2 className="animate-spin" /> : 'Add to Playlist'}
               </button>
             </div>
           </div>
 
-          {activeStoreId && (
-             <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-               <h3 className="text-sm font-bold text-slate-300 mb-3">Linked Screens</h3>
-               {activeScreens.length === 0 ? (
-                 <p className="text-xs text-slate-500 italic">No screens linked yet.</p>
-               ) : (
-                 <ul className="space-y-2">
-                   {activeScreens.map(scr => (
-                     <li key={scr.id} className="flex items-center gap-2 text-xs text-emerald-400">
-                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                       Screen {scr.id.slice(-4)}
-                     </li>
-                   ))}
-                 </ul>
-               )}
-               
-               <div className="mt-4 pt-4 border-t border-slate-700">
-                  <label className="text-xs text-slate-400 mb-1 block">Pair New Screen</label>
-                  <div className="flex gap-1">
-                    <input 
-                      type="text" 
-                      placeholder="Code"
-                      value={pairCodeInput}
-                      onChange={(e) => setPairCodeInput(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:border-emerald-500 outline-none transition-colors"
-                    />
-                    <button onClick={handlePairScreen} className="bg-emerald-600 hover:bg-emerald-500 text-white p-1 rounded transition-colors">
-                      <Plus size={14} />
-                    </button>
-                  </div>
-               </div>
-             </div>
-          )}
+          {/* Preview */}
+          <div className="w-full md:w-2/3 bg-black/50 flex flex-col relative overflow-hidden">
+            <div className="p-4 flex justify-between items-center relative z-10">
+              <h4 className="text-white/50 font-bold uppercase tracking-widest text-xs flex items-center gap-2 bg-slate-900/80 px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
+                <MonitorPlay size={14} className="text-emerald-400" /> Editor Preview
+              </h4>
+            </div>
+            <div className="flex-1 p-8 flex items-center justify-center relative z-10">
+              <div className="aspect-video w-full max-w-4xl bg-black shadow-2xl border-8 border-slate-800 rounded-2xl overflow-hidden relative group">
+                <ContentPreview item={newItem} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- DASHBOARD VIEW ---
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
+      {/* Sidebar */}
+      <div className="w-full md:w-72 bg-slate-900 text-white flex flex-col h-auto md:h-screen sticky top-0 border-r border-slate-700 shadow-xl z-20">
+        <div className="p-6 border-b border-slate-700">
+          <h2 className="text-xl font-bold flex items-center gap-2 tracking-tight"><Settings className="text-emerald-400" /> CMS Admin</h2>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-8">
+          <div>
+            <div className="flex items-center justify-between mb-3 px-2">
+               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stores</label>
+            </div>
+            <div className="space-y-1">
+              {stores.map(store => (
+                <button
+                  key={store.id}
+                  onClick={() => setActiveStoreId(store.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition-all border ${activeStoreId === store.id ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800/50 text-slate-300 border-transparent hover:bg-slate-800'}`}
+                >
+                  <Smartphone size={16} />
+                  <span className="text-sm font-medium">{store.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="p-4 border-t border-slate-700">
-          <button onClick={() => setMode('selection')} className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors">
+        <div className="p-4 border-t border-slate-700 bg-slate-900/50">
+          <div className="flex items-center gap-3 text-xs text-slate-400 mb-4 px-2">
+             <Activity size={14} className="text-emerald-400" />
+             System Status: <span className="text-emerald-400 font-bold">98% Uptime</span>
+          </div>
+          <button onClick={() => setMode('selection')} className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors w-full px-2">
             <LogOut size={16} /> Exit Admin
           </button>
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto bg-slate-50">
-        {activeStoreId && currentStoreData ? (
-          <div className="max-w-4xl mx-auto">
-            <header className="flex justify-between items-center mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-800">{currentStoreData.name} Playlist</h1>
-                <p className="text-slate-500">Manage your digital signage content.</p>
-              </div>
-              <button 
-                onClick={() => setIsAddModalOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-medium transition-all hover:scale-105 active:scale-95"
-              >
-                <Plus size={20} /> Add Content
-              </button>
-            </header>
+        <div className="max-w-5xl mx-auto">
+           {activeStoreId && currentStoreData ? (
+             <>
+               <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                    {currentStoreData.name} Playlist 
+                    <span className="text-sm font-normal bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-2">
+                       <Wifi size={14} /> Live Sync
+                    </span>
+                  </h1>
+                  <p className="text-slate-500 mt-1">Manage content for {activeScreens.length} connected screens.</p>
+                </div>
+                <button 
+                  onClick={() => setViewMode('editor')}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-medium transition-all hover:scale-105"
+                >
+                  <Plus size={20} /> Add Content
+                </button>
+              </header>
 
-            <div className="space-y-4">
-              {currentStoreData.content && currentStoreData.content.length > 0 ? (
-                currentStoreData.content.map((item, index) => (
-                  <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-6 group hover:shadow-md transition-shadow">
-                    <div className="flex flex-col gap-1 text-slate-400">
-                      <button onClick={() => handleMoveItem(index, 'up')} disabled={index === 0} className="hover:text-indigo-600 disabled:opacity-30 transition-colors"><ArrowUp size={20} /></button>
-                      <button onClick={() => handleMoveItem(index, 'down')} disabled={index === currentStoreData.content.length - 1} className="hover:text-indigo-600 disabled:opacity-30 transition-colors"><ArrowDown size={20} /></button>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Server size={24} /></div>
+                    <div>
+                       <h3 className="font-bold text-slate-800">Device Health Check</h3>
+                       <p className="text-sm text-slate-500">{onlineCount} of {activeScreens.length} screens are online.</p>
                     </div>
+                 </div>
+              </div>
 
+              <div className="space-y-4">
+                {(!currentStoreData.content || currentStoreData.content.length === 0) ? (
+                  <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                    <Layout className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500">No content yet. Click "Add Content" to start.</p>
+                  </div>
+                ) : (
+                  currentStoreData.content.map((item) => (
                     <div 
-                      className="w-32 h-20 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 shrink-0 shadow-inner"
-                      style={{ backgroundColor: item.styles?.backgroundColor || '#f1f5f9' }}
+                      key={item.id} 
+                      className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-6 transition-all ${!item.active ? 'opacity-50 grayscale bg-slate-50' : 'hover:shadow-md'}`}
                     >
-                      {item.type === 'image' && (item.url ? <img src={item.url} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" />)}
-                      {item.type === 'video' && <Play className="text-slate-400" />}
-                      {item.type === 'pdf' && <FileText className="text-red-400" />}
-                      {item.type === 'widget_weather' && <CloudSun className="text-blue-500" />}
-                      {item.type === 'widget_ticker' && <Type className="text-emerald-500" />}
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${
-                          item.type.includes('widget') ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {item.type.replace('_', ' ')}
-                        </span>
-                        {item.scheduleStart && (
-                           <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded flex items-center gap-1">
-                             <Clock size={10} /> {item.scheduleStart} - {item.scheduleEnd}
-                           </span>
-                        )}
+                      <div className="w-20 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 shrink-0">
+                         {item.type === 'image' && <ImageIcon size={20} />}
+                         {item.type === 'video' && <Play size={20} />}
+                         {item.type === 'widget_qr' && <QrCode size={20} />}
+                         {item.type === 'widget_countdown' && <Timer size={20} />}
+                         {item.type === 'widget_weather' && <CloudSun size={20} />}
                       </div>
-                      <h3 className="font-semibold text-slate-800 truncate">
-                        {item.type === 'widget_ticker' ? item.text : (item.text || 'Media Content')}
-                      </h3>
-                      <p className="text-sm text-slate-500">{item.duration}s • {item.styles?.fontFamily || 'Default Font'}</p>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${item.type.includes('widget') ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {item.type.replace('widget_', '')}
+                          </span>
+                          {!item.active && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">Disabled</span>}
+                        </div>
+                        <h3 className={`font-semibold text-slate-800 truncate ${!item.active ? 'line-through text-slate-400' : ''}`}>
+                          {item.text || 'Untitled Item'}
+                        </h3>
+                        <div className="flex items-center gap-4 text-xs text-slate-500 mt-1">
+                           <span className="flex items-center gap-1"><Clock size={12} /> {item.duration}s</span>
+                           <span className="flex items-center gap-1"><CalendarDays size={12} /> {getDayString(item.scheduleDays)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 border-l border-slate-100 pl-4">
+                        <button 
+                           onClick={() => toggleItemActive(item.id)}
+                           className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${item.active ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-slate-500 bg-slate-100 hover:bg-slate-200'}`}
+                           title={item.active ? "Deactivate" : "Activate"}
+                         >
+                           {item.active ? <Eye size={18} /> : <EyeOff size={18} />}
+                           <span className="hidden md:inline">{item.active ? 'Active' : 'Hidden'}</span>
+                         </button>
+
+                         <button 
+                           onClick={() => deleteItem(item)}
+                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                           title="Delete Item"
+                         >
+                           <Trash2 size={20} />
+                         </button>
+                      </div>
                     </div>
-
-                    <button 
-                      onClick={() => handleDeleteItem(item)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-200">
-                  <Layout className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500">No content yet. Click "Add Content" to start.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400">
-             <Smartphone className="w-16 h-16 mb-4 opacity-20" />
-            <p>Select or Create a Location to begin.</p>
-          </div>
-        )}
-      </div>
-
-      {/* New Enhanced Split-Screen Modal */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Create Content">
-        <div className="flex flex-col md:flex-row h-full relative">
-          
-          {/* Loading Overlay */}
-          {isUploading && (
-            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
-              <Loader2 className="w-16 h-16 animate-spin text-emerald-500 mb-4" />
-              <p className="text-xl font-bold">Uploading Media...</p>
-              <p className="text-slate-400">Please wait while we save your file.</p>
-            </div>
-          )}
-
-          {/* LEFT: Controls */}
-          <div className="w-full md:w-1/3 bg-slate-800 p-6 overflow-y-auto border-r border-slate-700 space-y-6">
-            
-            {/* 1. Type Selection */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Content Type</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['image', 'video', 'pdf', 'widget_ticker', 'widget_weather'].map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setNewItem({ ...newItem, type: t })}
-                    className={`p-2 rounded text-xs font-bold uppercase transition-all ${newItem.type === t ? 'bg-emerald-500 text-white ring-2 ring-emerald-300' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-                  >
-                    {t.replace('widget_', '')}
-                  </button>
-                ))}
+                  ))
+                )}
               </div>
-            </div>
-
-            {/* 2. Content Input */}
-            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-              {['image', 'video', 'pdf'].includes(newItem.type) && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-200 mb-2 flex items-center gap-2">
-                    <Upload size={16} className="text-emerald-400" /> Upload File
-                  </label>
-                  <input 
-                    type="file" 
-                    accept={newItem.type === 'video' ? "video/*" : newItem.type === 'pdf' ? ".pdf" : "image/*"}
-                    onChange={handleFileUpload}
-                    className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
-                  />
-                  <p className="text-xs text-slate-500 mt-2">
-                    {newItem.type.toUpperCase()} • Max 10MB
-                  </p>
-                </div>
-              )}
-
-              {newItem.type === 'widget_ticker' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-200 mb-2">Message Text</label>
-                  <textarea 
-                    rows="3"
-                    value={newItem.text || ''}
-                    onChange={(e) => setNewItem({ ...newItem, text: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-sm focus:border-emerald-500 outline-none"
-                    placeholder="Enter your announcement here..."
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 3. Custom Styles */}
-            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Palette size={14} /> Customization
-              </label>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-xs text-slate-300 mb-1 block">Background</label>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="color" 
-                      value={newItem.styles.backgroundColor}
-                      onChange={(e) => setNewItem({ ...newItem, styles: { ...newItem.styles, backgroundColor: e.target.value } })}
-                      className="w-8 h-8 rounded cursor-pointer bg-transparent border-none"
-                    />
-                    <span className="text-xs text-slate-400 font-mono">{newItem.styles.backgroundColor}</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-300 mb-1 block">Text Color</label>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="color" 
-                      value={newItem.styles.color}
-                      onChange={(e) => setNewItem({ ...newItem, styles: { ...newItem.styles, color: e.target.value } })}
-                      className="w-8 h-8 rounded cursor-pointer bg-transparent border-none"
-                    />
-                    <span className="text-xs text-slate-400 font-mono">{newItem.styles.color}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-xs text-slate-300 mb-1 block">Font Family</label>
-                  <select 
-                    value={newItem.styles.fontFamily}
-                    onChange={(e) => setNewItem({ ...newItem, styles: { ...newItem.styles, fontFamily: e.target.value } })}
-                    className="w-full bg-slate-900 border border-slate-600 rounded text-xs text-white p-2"
-                  >
-                    <option value="ui-sans-serif">Sans Serif</option>
-                    <option value="ui-serif">Serif</option>
-                    <option value="ui-monospace">Monospace</option>
-                    <option value="cursive">Handwritten</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-300 mb-1 block">Font Size</label>
-                  <select 
-                    value={newItem.styles.fontSize}
-                    onChange={(e) => setNewItem({ ...newItem, styles: { ...newItem.styles, fontSize: e.target.value } })}
-                    className="w-full bg-slate-900 border border-slate-600 rounded text-xs text-white p-2"
-                  >
-                    <option value="1.5rem">Small</option>
-                    <option value="3rem">Medium</option>
-                    <option value="5rem">Large</option>
-                    <option value="8rem">Huge</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-300 mb-2 block">Content Placement</label>
-                <div className="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded border border-slate-600">
-                  {['flex-start', 'center', 'flex-end'].map((align) => (
-                    <button
-                      key={align}
-                      onClick={() => setNewItem({ ...newItem, styles: { ...newItem.styles, justifyContent: align } })} // Vertical in flex-col
-                      className={`p-1 rounded text-[10px] uppercase ${newItem.styles.justifyContent === align ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}
-                    >
-                      {align === 'flex-start' ? 'Top' : align === 'center' ? 'Mid' : 'Bot'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Timing */}
-            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block flex items-center gap-2">
-                <Calendar size={14} /> Schedule & Duration
-              </label>
-              <div className="space-y-3">
-                 <div>
-                   <label className="text-xs text-slate-300">Duration (seconds)</label>
-                   <input 
-                     type="number" 
-                     value={newItem.duration}
-                     onChange={(e) => setNewItem({ ...newItem, duration: parseInt(e.target.value) })}
-                     className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-sm"
-                   />
-                 </div>
-                 <div className="grid grid-cols-2 gap-2">
-                   <div>
-                     <label className="text-xs text-slate-300">Start Hour</label>
-                     <select 
-                       value={newItem.scheduleStart} 
-                       onChange={(e) => setNewItem({ ...newItem, scheduleStart: e.target.value })}
-                       className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs"
-                     >
-                       <option value="">Always</option>
-                       {Array.from({length: 24}).map((_, i) => <option key={i} value={`${i}:00`}>{i}:00</option>)}
-                     </select>
-                   </div>
-                   <div>
-                     <label className="text-xs text-slate-300">End Hour</label>
-                     <select 
-                       value={newItem.scheduleEnd} 
-                       onChange={(e) => setNewItem({ ...newItem, scheduleEnd: e.target.value })}
-                       className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs"
-                     >
-                       <option value="">Always</option>
-                       {Array.from({length: 24}).map((_, i) => <option key={i} value={`${i}:00`}>{i}:00</option>)}
-                     </select>
-                   </div>
-                 </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={handleAddItem}
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-lg shadow-lg transition-all transform hover:scale-[1.02]"
-            >
-              Add to Playlist
-            </button>
-          </div>
-
-          {/* RIGHT: Live Preview */}
-          <div className="w-full md:w-2/3 bg-slate-950 flex flex-col">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-              <h4 className="text-slate-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-                <MonitorPlay size={16} /> Live Device Preview
-              </h4>
-              <span className="text-xs text-slate-600">1920x1080 Aspect Ratio</span>
-            </div>
-            <div className="flex-1 p-8 flex items-center justify-center bg-slate-900/50">
-              {/* Aspect Ratio Box mimicking a TV */}
-              <div className="aspect-video w-full max-h-full bg-black shadow-2xl border-4 border-slate-800 rounded-lg overflow-hidden relative">
-                <ContentPreview item={newItem} />
-                
-                {/* Simulated Widget Overlay for realism */}
-                <div className="absolute top-4 right-4 bg-black/40 backdrop-blur px-3 py-1 rounded text-white text-xs font-mono border border-white/10">
-                  12:00 PM
-                </div>
-              </div>
-            </div>
-          </div>
-
+             </>
+           ) : (
+             <div className="h-full flex flex-col items-center justify-center text-slate-400 mt-20">
+               <Smartphone className="w-16 h-16 mb-4 opacity-20" />
+               <p>Select a location from the sidebar.</p>
+             </div>
+           )}
         </div>
-      </Modal>
+      </div>
     </div>
   );
 };
