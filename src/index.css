@@ -2,32 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
-/* THEME VARIABLES
-  Change these values to update your branding globally.
-*/
+/* THEME VARIABLES */
 :root {
-  /* Main Brand Color (Currently Emerald) */
   --color-primary: 16 185 129; 
   --color-primary-dark: 4 120 87;
-
-  /* Secondary/Accent Color (Currently Indigo) */
   --color-accent: 79 70 229;
-  
-  /* Background Colors (Currently Slate 900) */
   --bg-dark: 15 23 42;
   --bg-card: 30 41 59;
-  
-  /* Text Colors */
   --text-main: 255 255 255;
   --text-muted: 148 163 184;
 }
 
-/* Custom Animations */
+/* --- CUSTOM ANIMATIONS --- */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 .animate-fade-in {
   animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Marquee (Ticker) */
+@keyframes marquee { 
+  0% { transform: translateX(100%); } 
+  100% { transform: translateX(-100%); } 
+}
+.animate-marquee { 
+  display: inline-block; 
+  white-space: nowrap; 
+  padding-left: 100%; 
+}
+
+/* Floating Elements (Weather Icons) */
+@keyframes float { 
+  0%, 100% { transform: translateY(0px); } 
+  50% { transform: translateY(-10px); } 
+}
+.animate-float { 
+  animation: float 6s ease-in-out infinite; 
+}
+
+/* Slow Rotation (Sun) */
+@keyframes spin-slow { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
+.animate-spin-slow { 
+  animation: spin-slow 20s linear infinite; 
+}
+
+/* Falling Elements (Rain/Snow) */
+@keyframes fall { 
+  0% { transform: translateY(-20px); opacity: 0; } 
+  10% { opacity: 1; } 
+  90% { opacity: 1; } 
+  100% { transform: translateY(100vh); opacity: 0; } 
+}
+.animate-fall { 
+  animation: fall linear infinite; 
+}
+
+/* Drifting Clouds */
+@keyframes drift { 
+  from { transform: translateX(-100%); } 
+  to { transform: translateX(100vw); } 
+}
+.animate-drift { 
+  animation: drift linear infinite; 
+}
+
+/* Green Pulse (Live Indicators) */
+@keyframes pulse-green { 
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } 
+}
+.animate-pulse-green { 
+  animation: pulse-green 2s infinite; 
 }
